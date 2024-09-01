@@ -2,26 +2,30 @@ import pickle
 import streamlit as st
 import requests
 
-def fetch_poster(movie_id):
-    url = "https://api.themoviedb.org/3/movie/{}?api_key=07f8d87d813dd120113d0006541744fc&language=en-US".format(movie_id)
-    data = requests.get(url)
-    data = data.json()
-    poster_path = data['poster_path']
-    full_path = "https://image.tmdb.org/t/p/w500/" + poster_path
-    return full_path
+def fetch_movie_details(movie_id):
+    url = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key=07f8d87d813dd120113d0006541744fc&language=en-US"
+    response = requests.get(url)
+    movie_data = response.json()
+
+    movie_details = {
+        'title': movie_data.get('title', 'N/A'),
+        'poster_path': f"https://image.tmdb.org/t/p/w500{movie_data.get('poster_path', '')}",
+        'cast': [cast_member['name'] for cast_member in movie_data.get('credits', {}).get('cast', [])][:5],
+        'ratings': movie_data.get('vote_average', 'N/A'),
+        'overview': movie_data.get('overview', 'N/A')
+    }
+    return movie_details
 
 def recommend(movie):
-    
     index = movies[movies['title'] == movie].index[0]
     distances = sorted(list(enumerate(similarity[index])), reverse=True, key=lambda x: x[1])
-    recommended_movie_names = []
-    recommended_movie_posters = []
-    for i in distances[1:6]:
+    recommended_movies = []
+    for i in distances[1:6]:  # Assuming you want the top 5 recommendations
         movie_id = movies.iloc[i[0]].movie_id
-        recommended_movie_posters.append(fetch_poster(movie_id))
-        recommended_movie_names.append(movies.iloc[i[0]].title)
+        movie_details = fetch_movie_details(movie_id)  # Ensure this returns a dictionary
+        recommended_movies.append(movie_details)
+    return recommended_movies
 
-    return recommended_movie_names,recommended_movie_posters
 
 
 st.header('Movie Recommender System')
@@ -35,24 +39,15 @@ selected_movie = st.selectbox(
 )
 
 if st.button('Show Recommendation'):
-    recommended_movie_names,recommended_movie_posters = recommend(selected_movie)
-    col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        st.text(recommended_movie_names[0])
-        st.image(recommended_movie_posters[0])
-    with col2:
-        st.text(recommended_movie_names[1])
-        st.image(recommended_movie_posters[1])
+    recommended_movies = recommend(selected_movie)
+    cols = st.columns(5)
+    for i, movie_details in enumerate(recommended_movies):
+        with cols[i]:
+            st.image(movie_details['poster_path'], caption=movie_details['title'])
+            with st.expander("See details"):
+                st.write(f"Ratings: {movie_details['ratings']}")
+                st.write(f"Overview: {movie_details['overview']}")
 
-    with col3:
-        st.text(recommended_movie_names[2])
-        st.image(recommended_movie_posters[2])
-    with col4:
-        st.text(recommended_movie_names[3])
-        st.image(recommended_movie_posters[3])
-    with col5:
-        st.text(recommended_movie_names[4])
-        st.image(recommended_movie_posters[4])
 
 
 
